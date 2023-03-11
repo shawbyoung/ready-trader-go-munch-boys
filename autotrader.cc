@@ -47,6 +47,59 @@ void AutoTrader::HedgeFilledMessageHandler(unsigned long clientOrderId,
                                    << " lots at $" << price << " average price in cents";
 }
 
+unsigned long AutoTrader::UpdateSpreadInfo(Instrument instrument, unsigned long bid_price, unsigned long ask_price ) { 
+
+    if ( instrument == Instrument::FUTURE ) { 
+        last_future_bid_price = bid_price;
+        last_future_ask_price = ask_price;
+
+        if ( last_future_ask_price == 0 && last_future_bid_price != 0 ) { 
+            last_future_mid_price = last_future_bid_price;           
+        }
+
+        if ( last_future_ask_price != 0 && last_future_bid_price == 0 ) { 
+            last_future_mid_price = last_future_ask_price;           
+        }
+
+        else { 
+            last_future_mid_price = (last_future_ask_price + last_future_bid_price) / 2;
+        }
+    }
+
+    if ( instrument == Instrument::ETF ) { 
+        last_etf_bid_price = bid_price;
+        last_etf_ask_price = ask_price;
+
+        if ( last_etf_ask_price == 0 && last_etf_bid_price != 0 ) { 
+            last_etf_mid_price = last_etf_bid_price;           
+        }
+
+        if ( last_etf_ask_price != 0 && last_etf_bid_price == 0 ) { 
+            last_etf_mid_price = last_etf_ask_price;           
+        }
+
+        else { 
+            last_etf_mid_price = (last_etf_ask_price + last_etf_bid_price) / 2;
+        }
+    }
+
+    unsigned long standard_dev = 0;
+
+    if (last_future_mid_price != 0 && last_etf_bid_price != 0) { 
+
+        unsigned long spread = last_future_mid_price > last_etf_mid_price ? 
+        last_future_mid_price - last_etf_mid_price : last_etf_mid_price - last_future_mid_price;
+
+        unsigned long ss_std = spread_stats.std();
+        standard_dev = spread_stats.mean() > spread ? 
+        (spread_stats.mean() - spread)/ ss_std : (spread - spread_stats.mean())/ss_std; 
+
+        spread_stats.push(spread);
+    }
+
+    return standard_dev; 
+}
+
 void AutoTrader::OrderBookMessageHandler(Instrument instrument,
                                          unsigned long sequenceNumber,
                                          const std::array<unsigned long, TOP_LEVEL_COUNT>& askPrices,
@@ -60,93 +113,25 @@ void AutoTrader::OrderBookMessageHandler(Instrument instrument,
                                    << "; bid prices: " << bidPrices[0]
                                    << "; bid volumes: " << bidVolumes[0];
 
-    if (instrument == Instrument::FUTURE)
-    {
-        unsigned long priceAdjustment = - (mPosition / LOT_SIZE) * TICK_SIZE_IN_CENTS;
-        unsigned long newAskPrice = (askPrices[0] != 0) ? askPrices[0] + priceAdjustment : 0;
-        unsigned long newBidPrice = (bidPrices[0] != 0) ? bidPrices[0] + priceAdjustment : 0;
-
-
-        // Updates the last futures bid and ask prices
-        if ( bidPrices[0] != 0 ) { 
-            last_future_bid_price = bidPrices[0];
+    unsigned long standard_dev = UpdateSpreadInfo(instrument, bidPrices[0], askPrices[0]);
+        
+    if ( standard_dev > 1 ) { 
+        if ( last_future_mid_price > last_etf_mid_price ) { 
+            mBidId = mNextMessageId++;
+            SendInsertOrder(mBidId, Side::BUY, bidPrices[0]+TICK_SIZE_IN_CENTS, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
+            mBids.emplace(mBidId);
         }
 
-        if ( askPrices[0] != 0 ) { 
-            last_future_ask_price = askPrices[0];
+        if ( last_future_mid_price < last_etf_mid_price ) { 
+
+            mAskId = mNextMessageId++;
+            SendInsertOrder(mAskId, Side::SELL, askPrices[0]-TICK_SIZE_IN_CENTS, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
+            mAsks.emplace(mAskId);
         }
-
-        // Handles edge case, early game when bid xor ask 
-        if ( last_future_ask_price == 0 ) { 
-            last_future_mid_price = last_future_bid_price; 
-        }
-
-        if ( last_future_bid_price == 0 ) { 
-            last_future_mid_price = last_future_ask_price;
-        }
-
-        // STD explosion 
-        if (last_future_mid_price != 0 && last_etf_bid_price != 0 && spread_stats.std() != 0) {
-
-            unsigned long spread = last_future_mid_price > last_etf_mid_price ? 
-            last_future_mid_price - last_etf_mid_price :  last_etf_mid_price - last_future_mid_price;        
- 
-            unsigned long standard_dev = spread_stats.mean() > spread ?
-            (spread_stats.mean() - spread)/2 : (spread - spread_stats.mean())/2; 
-
-            if ( standard_dev > 1 ) { 
-                if ( last_future_mid_price > last_etf_mid_price ) { 
-                    mBidId = mNextMessageId++;
-                    mBidPrice = newBidPrice;
-                    SendInsertOrder(mBidId, Side::BUY, newBidPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
-                    mBids.emplace(mBidId);
-                }
-
-                if ( last_future_mid_price < last_etf_mid_price ) { 
-
-                    mAskId = mNextMessageId++;
-                    mAskPrice = newAskPrice;
-                    SendInsertOrder(mAskId, Side::SELL, newAskPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
-                    mAsks.emplace(mAskId);
-                }
-            }
-
-            spread_stats.push(spread);
-        }
-
-    
-
-
-
-
-        // if (mAskId != 0 && newAskPrice != 0 && newAskPrice != mAskPrice)
-        // {
-        //     SendCancelOrder(mAskId);
-        //     mAskId = 0;
-        // }
-        // if (mBidId != 0 && newBidPrice != 0 && newBidPrice != mBidPrice)
-        // {
-        //     SendCancelOrder(mBidId);
-        //     mBidId = 0;
-        // }
-
-
-         // if (mAskId == 0 && newAskPrice != 0 && mPosition > -POSITION_LIMIT)
-        // {
-        //     mAskId = mNextMessageId++;
-        //     mAskPrice = newAskPrice;
-        //     SendInsertOrder(mAskId, Side::SELL, newAskPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
-        //     mAsks.emplace(mAskId);
-        // }
-        // if (mBidId == 0 && newBidPrice != 0 && mPosition < POSITION_LIMIT)
-        // {
-        //     mBidId = mNextMessageId++;
-        //     mBidPrice = newBidPrice;
-        //     SendInsertOrder(mBidId, Side::BUY, newBidPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
-        //     mBids.emplace(mBidId);
-        // }
     }
+
 }
+
 
 void AutoTrader::OrderFilledMessageHandler(unsigned long clientOrderId,
                                            unsigned long price,

@@ -22,13 +22,10 @@
 #include <memory>
 #include <string>
 #include <unordered_set>
-#include <cmath>
-
-
 #include <boost/asio/io_context.hpp>
-
 #include <ready_trader_go/baseautotrader.h>
 #include <ready_trader_go/types.h>
+#include <cmath>
 
 class RunningStats { 
 public:
@@ -62,8 +59,6 @@ public:
         return sqrt(variance());
     }
 
-
-
 private:
     unsigned long n = 0;
     unsigned long old_m = 0;
@@ -73,6 +68,7 @@ private:
 
 
 };
+
 
 class AutoTrader : public ReadyTraderGo::BaseAutoTrader
 {
@@ -139,6 +135,12 @@ public:
                                   const std::array<unsigned long, ReadyTraderGo::TOP_LEVEL_COUNT>& bidPrices,
                                   const std::array<unsigned long, ReadyTraderGo::TOP_LEVEL_COUNT>& bidVolumes) override;
 
+
+
+    // Updates the spread info - e.g. last future bid price, last future ask price, mid price, etc, returns std of current spread 
+    unsigned long UpdateSpreadInfo(ReadyTraderGo::Instrument instrument, unsigned long bid_price, unsigned long ask_price );
+
+
 private:
     unsigned long mNextMessageId = 1;
     unsigned long mAskId = 0;
@@ -159,7 +161,6 @@ private:
     unsigned long last_future_ask_price = 0;
 
     unsigned long last_spread = 0;
-
     RunningStats spread_stats;
 };
 #endif //CPPREADY_TRADER_GO_AUTOTRADER_H
