@@ -90,9 +90,10 @@ unsigned long AutoTrader::UpdateSpreadInfo(Instrument instrument, unsigned long 
         unsigned long spread = last_future_mid_price > last_etf_mid_price ? 
         last_future_mid_price - last_etf_mid_price : last_etf_mid_price - last_future_mid_price;
 
-        unsigned long ss_std = spread_stats.std();
-        standard_dev = spread_stats.mean() > spread ? 
-        (spread_stats.mean() - spread)/ ss_std : (spread - spread_stats.mean())/ss_std; 
+        if (spread_stats.std() != 0  ) { 
+            standard_dev = spread_stats.mean() > spread ? 
+            (spread_stats.mean() - spread)/ spread_stats.std() : (spread - spread_stats.mean())/spread_stats.std(); 
+        }
 
         spread_stats.push(spread);
     }
@@ -107,14 +108,30 @@ void AutoTrader::OrderBookMessageHandler(Instrument instrument,
                                          const std::array<unsigned long, TOP_LEVEL_COUNT>& bidPrices,
                                          const std::array<unsigned long, TOP_LEVEL_COUNT>& bidVolumes)
 {
+
+
+
+    // if (mAskId != 0 && askPrices[0] != 0 && askPrices[0] != mAskPrice)
+    //     {
+    //         SendCancelOrder(mAskId);
+    //         mAskId = 0;
+    //     }
+    
+    // if (mBidId != 0 && bidPrices[0] != 0 && newBidPrice != mBidPrice)
+    //     {
+    //         SendCancelOrder(mBidId);
+    //         mBidId = 0;
+    //     }
+    
+    unsigned long standard_dev = UpdateSpreadInfo(instrument, bidPrices[0], askPrices[0]);
+
     RLOG(LG_AT, LogLevel::LL_INFO) << "order book received for " << instrument << " instrument"
                                    << ": ask prices: " << askPrices[0]
                                    << "; ask volumes: " << askVolumes[0]
                                    << "; bid prices: " << bidPrices[0]
-                                   << "; bid volumes: " << bidVolumes[0];
+                                   << "; bid volumes: " << bidVolumes[0]
+                                   << "; standard_dev: " << standard_dev;
 
-    unsigned long standard_dev = UpdateSpreadInfo(instrument, bidPrices[0], askPrices[0]);
-        
     if ( standard_dev > 1 ) { 
         if ( last_future_mid_price > last_etf_mid_price ) { 
             mBidId = mNextMessageId++;
