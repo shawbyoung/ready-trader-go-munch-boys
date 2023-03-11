@@ -1,0 +1,8 @@
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/autotrader.dir
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/libs/CMakeFiles/edit_cache.dir
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/libs/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/libs/ready_trader_go/CMakeFiles/ready_trader_go_lib.dir
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/libs/ready_trader_go/CMakeFiles/edit_cache.dir
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/libs/ready_trader_go/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,61 @@
+Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
+Change Dir: /mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/CMakeScratch/TryCompile-hjEL3Z
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_6147b/fast && /usr/bin/make  -f CMakeFiles/cmTC_6147b.dir/build.make CMakeFiles/cmTC_6147b.dir/build
+make[1]: Entering directory '/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/CMakeScratch/TryCompile-hjEL3Z'
+Building C object CMakeFiles/cmTC_6147b.dir/src.c.o
+/usr/bin/cc -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_6147b.dir/src.c.o -c /mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/CMakeScratch/TryCompile-hjEL3Z/src.c
+Linking C executable cmTC_6147b
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/lib/python3.10/site-packages/cmake/data/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6147b.dir/link.txt --verbose=1
+/usr/bin/cc -rdynamic CMakeFiles/cmTC_6147b.dir/src.c.o -o cmTC_6147b 
+/home/linuxbrew/.linuxbrew/bin/ld: CMakeFiles/cmTC_6147b.dir/src.c.o: in function `main':
+src.c:(.text+0x46): undefined reference to `pthread_create'
+/home/linuxbrew/.linuxbrew/bin/ld: src.c:(.text+0x52): undefined reference to `pthread_detach'
+/home/linuxbrew/.linuxbrew/bin/ld: src.c:(.text+0x5e): undefined reference to `pthread_cancel'
+/home/linuxbrew/.linuxbrew/bin/ld: src.c:(.text+0x6f): undefined reference to `pthread_join'
+collect2: error: ld returned 1 exit status
+make[1]: *** [CMakeFiles/cmTC_6147b.dir/build.make:99: cmTC_6147b] Error 1
+make[1]: Leaving directory '/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/CMakeScratch/TryCompile-hjEL3Z'
+make: *** [Makefile:127: cmTC_6147b/fast] Error 2
+
+
+Source file was:
+#include <pthread.h>
+
+static void* test_func(void* data)
+{
+  return data;
+}
+
+int main(void)
+{
+  pthread_t thread;
+  pthread_create(&thread, NULL, test_func, NULL);
+  pthread_detach(thread);
+  pthread_cancel(thread);
+  pthread_join(thread, NULL);
+  pthread_atfork(NULL, NULL, NULL);
+  pthread_exit(NULL);
+
+  return 0;
+}
+
+
+Determining if the function pthread_create exists in the pthreads failed with the following output:
+Change Dir: /mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/CMakeScratch/TryCompile-CTm4MY
+
+Run Build Command(s):/usr/bin/make -f Makefile cmTC_592df/fast && /usr/bin/make  -f CMakeFiles/cmTC_592df.dir/build.make CMakeFiles/cmTC_592df.dir/build
+make[1]: Entering directory '/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/CMakeScratch/TryCompile-CTm4MY'
+Building C object CMakeFiles/cmTC_592df.dir/CheckFunctionExists.c.o
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create -o CMakeFiles/cmTC_592df.dir/CheckFunctionExists.c.o -c /mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/CMakeScratch/TryCompile-CTm4MY/CheckFunctionExists.c
+Linking C executable cmTC_592df
+/mnt/c/Users/tavod/PycharmProjects/readytradergo/lib/python3.10/site-packages/cmake/data/bin/cmake -E cmake_link_script CMakeFiles/cmTC_592df.dir/link.txt --verbose=1
+/usr/bin/cc  -DCHECK_FUNCTION_EXISTS=pthread_create -rdynamic CMakeFiles/cmTC_592df.dir/CheckFunctionExists.c.o -o cmTC_592df  -lpthreads 
+/home/linuxbrew/.linuxbrew/bin/ld: cannot find -lpthreads: No such file or directory
+collect2: error: ld returned 1 exit status
+make[1]: *** [CMakeFiles/cmTC_592df.dir/build.make:99: cmTC_592df] Error 1
+make[1]: Leaving directory '/mnt/c/Users/tavod/PycharmProjects/readytradergo/bin/build/CMakeFiles/CMakeScratch/TryCompile-CTm4MY'
+make: *** [Makefile:127: cmTC_592df/fast] Error 2
+
+
+
