@@ -1,21 +1,5 @@
-// Copyright 2021 Optiver Asia Pacific Pty. Ltd.
-//
-// This file is part of Ready Trader Go.
-//
-//     Ready Trader Go is free software: you can redistribute it and/or
-//     modify it under the terms of the GNU Affero General Public License
-//     as published by the Free Software Foundation, either version 3 of
-//     the License, or (at your option) any later version.
-//
-//     Ready Trader Go is distributed in the hope that it will be useful,
-//     but WITHOUT ANY WARRANTY; without even the implied warranty of
-//     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//     GNU Affero General Public License for more details.
-//
-//     You should have received a copy of the GNU Affero General Public
-//     License along with Ready Trader Go.  If not, see
-//     <https://www.gnu.org/licenses/>.
 #include <array>
+#include <cmath>
 
 #include <boost/asio/io_context.hpp>
 
@@ -32,6 +16,8 @@ constexpr int POSITION_LIMIT = 100;
 constexpr int TICK_SIZE_IN_CENTS = 100;
 constexpr int MIN_BID_NEARST_TICK = (MINIMUM_BID + TICK_SIZE_IN_CENTS) / TICK_SIZE_IN_CENTS * TICK_SIZE_IN_CENTS;
 constexpr int MAX_ASK_NEAREST_TICK = MAXIMUM_ASK / TICK_SIZE_IN_CENTS * TICK_SIZE_IN_CENTS;
+
+// Pairs trading - uses standard deviation to make orders
 
 AutoTrader::AutoTrader(boost::asio::io_context& context) : BaseAutoTrader(context)
 {
@@ -80,31 +66,85 @@ void AutoTrader::OrderBookMessageHandler(Instrument instrument,
         unsigned long newAskPrice = (askPrices[0] != 0) ? askPrices[0] + priceAdjustment : 0;
         unsigned long newBidPrice = (bidPrices[0] != 0) ? bidPrices[0] + priceAdjustment : 0;
 
-        if (mAskId != 0 && newAskPrice != 0 && newAskPrice != mAskPrice)
-        {
-            SendCancelOrder(mAskId);
-            mAskId = 0;
-        }
-        if (mBidId != 0 && newBidPrice != 0 && newBidPrice != mBidPrice)
-        {
-            SendCancelOrder(mBidId);
-            mBidId = 0;
+
+        // Updates the last futures bid and ask prices
+        if ( bidPrices[0] != 0 ) { 
+            last_future_bid_price = bidPrices[0];
         }
 
-        if (mAskId == 0 && newAskPrice != 0 && mPosition > -POSITION_LIMIT)
-        {
-            mAskId = mNextMessageId++;
-            mAskPrice = newAskPrice;
-            SendInsertOrder(mAskId, Side::SELL, newAskPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
-            mAsks.emplace(mAskId);
+        if ( askPrices[0] != 0 ) { 
+            last_future_ask_price = askPrices[0];
         }
-        if (mBidId == 0 && newBidPrice != 0 && mPosition < POSITION_LIMIT)
-        {
-            mBidId = mNextMessageId++;
-            mBidPrice = newBidPrice;
-            SendInsertOrder(mBidId, Side::BUY, newBidPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
-            mBids.emplace(mBidId);
+
+        // Handles edge case, early game when bid xor ask 
+        if ( last_future_ask_price == 0 ) { 
+            last_future_mid_price = last_future_bid_price; 
         }
+
+        if ( last_future_bid_price == 0 ) { 
+            last_future_mid_price = last_future_ask_price;
+        }
+
+        // STD explosion 
+        if (last_future_mid_price != 0 && last_etf_bid_price != 0 && spread_stats.std() != 0) {
+
+            unsigned long spread = last_future_mid_price > last_etf_mid_price ? 
+            last_future_mid_price - last_etf_mid_price :  last_etf_mid_price - last_future_mid_price;        
+ 
+            unsigned long standard_dev = spread_stats.mean() > spread ?
+            (spread_stats.mean() - spread)/2 : (spread - spread_stats.mean())/2; 
+
+            if ( standard_dev > 1 ) { 
+                if ( last_future_mid_price > last_etf_mid_price ) { 
+                    mBidId = mNextMessageId++;
+                    mBidPrice = newBidPrice;
+                    SendInsertOrder(mBidId, Side::BUY, newBidPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
+                    mBids.emplace(mBidId);
+                }
+
+                if ( last_future_mid_price < last_etf_mid_price ) { 
+
+                    mAskId = mNextMessageId++;
+                    mAskPrice = newAskPrice;
+                    SendInsertOrder(mAskId, Side::SELL, newAskPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
+                    mAsks.emplace(mAskId);
+                }
+            }
+
+            spread_stats.push(spread);
+        }
+
+    
+
+
+
+
+        // if (mAskId != 0 && newAskPrice != 0 && newAskPrice != mAskPrice)
+        // {
+        //     SendCancelOrder(mAskId);
+        //     mAskId = 0;
+        // }
+        // if (mBidId != 0 && newBidPrice != 0 && newBidPrice != mBidPrice)
+        // {
+        //     SendCancelOrder(mBidId);
+        //     mBidId = 0;
+        // }
+
+
+         // if (mAskId == 0 && newAskPrice != 0 && mPosition > -POSITION_LIMIT)
+        // {
+        //     mAskId = mNextMessageId++;
+        //     mAskPrice = newAskPrice;
+        //     SendInsertOrder(mAskId, Side::SELL, newAskPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
+        //     mAsks.emplace(mAskId);
+        // }
+        // if (mBidId == 0 && newBidPrice != 0 && mPosition < POSITION_LIMIT)
+        // {
+        //     mBidId = mNextMessageId++;
+        //     mBidPrice = newBidPrice;
+        //     SendInsertOrder(mBidId, Side::BUY, newBidPrice, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
+        //     mBids.emplace(mBidId);
+        // }
     }
 }
 

@@ -22,11 +22,57 @@
 #include <memory>
 #include <string>
 #include <unordered_set>
+#include <cmath>
+
 
 #include <boost/asio/io_context.hpp>
 
 #include <ready_trader_go/baseautotrader.h>
 #include <ready_trader_go/types.h>
+
+class RunningStats { 
+public:
+    void clear() { 
+        n = 0; 
+    }
+    void push(unsigned long x) { 
+        ++n;
+        if ( n == 1 ) { 
+            old_m = new_m = x;
+            old_s = 0;
+        }
+        else { 
+            new_m = old_m + (x - old_m)/n; 
+            new_s = old_s + (x - old_m)*(x - new_m);
+
+            old_m = new_m;
+            old_s = new_s;
+        }
+    }
+
+    unsigned long mean() { 
+        return new_m;
+    }
+
+    unsigned long variance() { 
+        return n > 1 ? new_s / (n - 1) : 0;
+    }
+
+    unsigned long std() { 
+        return sqrt(variance());
+    }
+
+
+
+private:
+    unsigned long n = 0;
+    unsigned long old_m = 0;
+    unsigned long new_m = 0;
+    unsigned long old_s = 0;
+    unsigned long new_s = 0;
+
+
+};
 
 class AutoTrader : public ReadyTraderGo::BaseAutoTrader
 {
@@ -102,6 +148,18 @@ private:
     signed long mPosition = 0;
     std::unordered_set<unsigned long> mAsks;
     std::unordered_set<unsigned long> mBids;
-};
 
+
+    unsigned long last_etf_mid_price = 0;
+    unsigned long last_etf_bid_price = 0;
+    unsigned long last_etf_ask_price = 0;
+
+    unsigned long last_future_mid_price = 0;
+    unsigned long last_future_bid_price = 0; 
+    unsigned long last_future_ask_price = 0;
+
+    unsigned long last_spread = 0;
+
+    RunningStats spread_stats;
+};
 #endif //CPPREADY_TRADER_GO_AUTOTRADER_H
