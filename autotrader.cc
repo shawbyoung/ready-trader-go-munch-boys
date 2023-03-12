@@ -47,7 +47,7 @@ void AutoTrader::HedgeFilledMessageHandler(unsigned long clientOrderId,
                                    << " lots at $" << price << " average price in cents";
 }
 
-unsigned long AutoTrader::UpdateSpreadInfo(Instrument instrument, unsigned long bid_price, unsigned long ask_price ) { 
+double AutoTrader::UpdateSpreadInfo(Instrument instrument, unsigned long bid_price, unsigned long ask_price ) { 
 
     if ( instrument == Instrument::FUTURE ) { 
         last_future_bid_price = bid_price;
@@ -81,18 +81,20 @@ unsigned long AutoTrader::UpdateSpreadInfo(Instrument instrument, unsigned long 
         else { 
             last_etf_mid_price = (last_etf_ask_price + last_etf_bid_price) / 2;
         }
+        RLOG(LG_AT, LogLevel::LL_INFO) << "Spread Info Updated - last future mid price: " << last_future_mid_price << "; last etf mid price:" << last_etf_mid_price;
     }
 
-    unsigned long standard_dev = 0;
+    double standard_dev = 0;
 
     if (last_future_mid_price != 0 && last_etf_bid_price != 0) { 
 
-        unsigned long spread = last_future_mid_price > last_etf_mid_price ? 
-        last_future_mid_price - last_etf_mid_price : last_etf_mid_price - last_future_mid_price;
+        double spread = last_future_mid_price > last_etf_mid_price ? 
+        static_cast<double>( (last_future_mid_price - last_etf_mid_price)) : static_cast<double>((last_etf_mid_price - last_future_mid_price));
 
-        if (spread_stats.std() != 0  ) { 
+        double std_gang = spread_stats.std_hard_moded();
+        if ( std_gang != 0  ) { 
             standard_dev = spread_stats.mean() > spread ? 
-            (spread_stats.mean() - spread)/ spread_stats.std() : (spread - spread_stats.mean())/spread_stats.std(); 
+            (spread_stats.mean() - spread)/ std_gang : (spread - spread_stats.mean())/std_gang; 
         }
 
         spread_stats.push(spread);
@@ -108,45 +110,43 @@ void AutoTrader::OrderBookMessageHandler(Instrument instrument,
                                          const std::array<unsigned long, TOP_LEVEL_COUNT>& bidPrices,
                                          const std::array<unsigned long, TOP_LEVEL_COUNT>& bidVolumes)
 {
-
-
-
-    // if (mAskId != 0 && askPrices[0] != 0 && askPrices[0] != mAskPrice)
-    //     {
-    //         SendCancelOrder(mAskId);
-    //         mAskId = 0;
-    //     }
     
-    // if (mBidId != 0 && bidPrices[0] != 0 && newBidPrice != mBidPrice)
-    //     {
-    //         SendCancelOrder(mBidId);
-    //         mBidId = 0;
-    //     }
-    
-    unsigned long standard_dev = UpdateSpreadInfo(instrument, bidPrices[0], askPrices[0]);
+    double standard_dev = UpdateSpreadInfo(instrument, bidPrices[0], askPrices[0]);
 
     RLOG(LG_AT, LogLevel::LL_INFO) << "order book received for " << instrument << " instrument"
                                    << ": ask prices: " << askPrices[0]
                                    << "; ask volumes: " << askVolumes[0]
                                    << "; bid prices: " << bidPrices[0]
                                    << "; bid volumes: " << bidVolumes[0]
-                                   << "; standard_dev: " << standard_dev;
+                                   << "; standard_dev: " << std::to_string(standard_dev);
+
+    if (mAskId != 0 && askPrices[0] != 0 && askPrices[0] != mAskPrice) {
+        SendCancelOrder(mAskId);
+        mAskId = 0;
+    }
+
+    if (mBidId != 0 && bidPrices[0] != 0 && bidPrices[0] != mBidPrice) {
+        SendCancelOrder(mBidId);
+        mBidId = 0;
+    }
+
 
     if ( standard_dev > 1 ) { 
-        if ( last_future_mid_price > last_etf_mid_price ) { 
+        if ( last_future_mid_price > last_etf_mid_price && mPosition < POSITION_LIMIT ) { 
             mBidId = mNextMessageId++;
+            mBidPrice = bidPrices[0]+TICK_SIZE_IN_CENTS;
             SendInsertOrder(mBidId, Side::BUY, bidPrices[0]+TICK_SIZE_IN_CENTS, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
             mBids.emplace(mBidId);
         }
 
-        if ( last_future_mid_price < last_etf_mid_price ) { 
+        if ( last_future_mid_price < last_etf_mid_price && mPosition > -POSITION_LIMIT ) { 
 
             mAskId = mNextMessageId++;
+            mAskPrice = askPrices[0]-TICK_SIZE_IN_CENTS;
             SendInsertOrder(mAskId, Side::SELL, askPrices[0]-TICK_SIZE_IN_CENTS, LOT_SIZE, Lifespan::GOOD_FOR_DAY);
             mAsks.emplace(mAskId);
-        }
+        }  
     }
-
 }
 
 
@@ -173,6 +173,8 @@ void AutoTrader::OrderStatusMessageHandler(unsigned long clientOrderId,
                                            unsigned long remainingVolume,
                                            signed long fees)
 {
+
+    RLOG(LG_AT, LogLevel::LL_INFO) << "OrderStatusMessageHandler called";
     if (remainingVolume == 0)
     {
         if (clientOrderId == mAskId)

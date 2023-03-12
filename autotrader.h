@@ -26,45 +26,70 @@
 #include <ready_trader_go/baseautotrader.h>
 #include <ready_trader_go/types.h>
 #include <cmath>
+#include <deque>
+
+
+
+
 
 class RunningStats { 
 public:
-    void clear() { 
-        n = 0; 
-    }
-    void push(unsigned long x) { 
-        ++n;
-        if ( n == 1 ) { 
-            old_m = new_m = x;
-            old_s = 0;
-        }
-        else { 
-            new_m = old_m + (x - old_m)/n; 
-            new_s = old_s + (x - old_m)*(x - new_m);
 
-            old_m = new_m;
-            old_s = new_s;
+    void push(unsigned long num) {
+
+        if ( data.size() < n ) { 
+            data.push_back(num);
+
+            new_m = (num + old_m*(data.size()-1))/data.size();
+            new_s = old_s + (num - old_m)*(num - new_m);
         }
+
+        else {
+            double front = data.front();
+            data.pop_front();
+            data.push_back(num);
+
+            new_m = (num + old_m*n - front)/100;
+            new_s = old_s + (num - old_m)*(num - new_m) - (front - old_m)*(front - new_m) ;
+        }
+
+        old_m = new_m;
+        old_s = new_s;
     }
 
-    unsigned long mean() { 
+    double std_hard_moded() {
+        double sum = 0; 
+        for (double d : data) { 
+            sum += pow((d - new_m),2);
+        }
+
+        return sqrt(sum/data.size());
+
+    }
+
+
+    double mean() { 
         return new_m;
     }
 
-    unsigned long variance() { 
-        return n > 1 ? new_s / (n - 1) : 0;
+    double variance() { 
+        return data.size() > 1 ? new_s / (data.size() - 1) : 0;
     }
 
-    unsigned long std() { 
+    double std() { 
         return sqrt(variance());
     }
 
 private:
-    unsigned long n = 0;
-    unsigned long old_m = 0;
-    unsigned long new_m = 0;
-    unsigned long old_s = 0;
-    unsigned long new_s = 0;
+
+    std::deque<double> data;
+
+    size_t n = 100;
+
+    double old_m = 0;
+    double new_m = 0;
+    double old_s = 0;
+    double new_s = 0;
 
 
 };
@@ -138,7 +163,7 @@ public:
 
 
     // Updates the spread info - e.g. last future bid price, last future ask price, mid price, etc, returns std of current spread 
-    unsigned long UpdateSpreadInfo(ReadyTraderGo::Instrument instrument, unsigned long bid_price, unsigned long ask_price );
+    double UpdateSpreadInfo(ReadyTraderGo::Instrument instrument, unsigned long bid_price, unsigned long ask_price );
 
 
 private:
@@ -148,9 +173,14 @@ private:
     unsigned long mBidId = 0;
     unsigned long mBidPrice = 0;
     signed long mPosition = 0;
+
+
+
     std::unordered_set<unsigned long> mAsks;
     std::unordered_set<unsigned long> mBids;
 
+    // Holds order ID as well as 
+    // std::priority_queue<std::tuple<unsigned long, /*time data*/ > order_ids_x_time; 
 
     unsigned long last_etf_mid_price = 0;
     unsigned long last_etf_bid_price = 0;
@@ -162,5 +192,9 @@ private:
 
     unsigned long last_spread = 0;
     RunningStats spread_stats;
+
+
+    // Helper methods
+    // bool CanPlaceOrders() { }
 };
 #endif //CPPREADY_TRADER_GO_AUTOTRADER_H

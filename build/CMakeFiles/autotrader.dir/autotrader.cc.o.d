@@ -925,4 +925,6 @@ CMakeFiles/autotrader.dir/autotrader.cc.o: \
  /home/shawy/readytradergo/cppready_trader_go/libs/ready_trader_go/connectivitytypes.h \
  /home/shawy/readytradergo/cppready_trader_go/libs/ready_trader_go/protocol.h \
  /home/shawy/readytradergo/cppready_trader_go/libs/ready_trader_go/types.h \
- /home/shawy/readytradergo/cppready_trader_go/libs/ready_trader_go/types.h
+ /home/shawy/readytradergo/cppready_trader_go/libs/ready_trader_go/types.h \
+ /usr/include/c++/11/deque /usr/include/c++/11/bits/stl_deque.h \
+ /usr/include/c++/11/bits/deque.tcc
